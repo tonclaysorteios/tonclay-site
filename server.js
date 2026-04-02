@@ -8,9 +8,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ===============================
-// CONFIG
-// ===============================
 const clientMP = new MercadoPagoConfig({
     accessToken: process.env.MP_ACCESS_TOKEN
 });
@@ -18,62 +15,69 @@ const clientMP = new MercadoPagoConfig({
 const paymentApi = new Payment(clientMP);
 
 const mongoUri = process.env.MONGODB_URI;
+
+if (!mongoUri) {
+    throw new Error('MONGODB_URI não foi definida no Render');
+}
+
 const mongoClient = new MongoClient(mongoUri);
 
 let db;
 let pedidosCollection;
 
-// ===============================
-// CONEXÃO COM MONGODB
-// ===============================
 async function conectarMongo() {
-    try {
-        await mongoClient.connect();
-        db = mongoClient.db('tonclay_sorteios');
-        pedidosCollection = db.collection('pedidos');
-        console.log('✅ MongoDB conectado com sucesso');
-    } catch (error) {
-        console.error('❌ Erro ao conectar no MongoDB:', error);
-    }
+    await mongoClient.connect();
+    db = mongoClient.db('tonclay_sorteios');
+    pedidosCollection = db.collection('pedidos');
+    console.log('✅ MongoDB conectado com sucesso');
 }
 
-// ===============================
-// GERA NÚMERO ÚNICO
-// ===============================
-async function gerarNumeroUnico() {
+async function gerarNumerosUnicos(quantidade = 1) {
     const pedidosAprovados = await pedidosCollection.find({
-        numero: { $ne: null }
+        numeros: { $exists: true, $ne: [] }
     }).toArray();
 
-    const usados = pedidosAprovados
-        .map(p => p.numero)
-        .filter(n => n !== null && n !== undefined);
+    const usados = pedidosAprovados.flatMap(p => Array.isArray(p.numeros) ? p.numeros : []);
 
-    if (usados.length >= 100) {
+    if (usados.length + quantidade > 100) {
         return null;
     }
 
-    let numero;
-    do {
-        numero = Math.floor(Math.random() * 100);
-    } while (usados.includes(numero));
+    const novosNumeros = [];
 
-    return numero;
+    while (novosNumeros.length < quantidade) {
+        const numero = Math.floor(Math.random() * 100);
+
+        if (!usados.includes(numero) && !novosNumeros.includes(numero)) {
+            novosNumeros.push(numero);
+        }
+    }
+
+    return novosNumeros;
 }
 
-// ===============================
-// ROTA TESTE
-// ===============================
 app.get('/', (req, res) => {
     res.send('Servidor rodando 🔥');
 });
 
-// ===============================
-// CRIAR PAGAMENTO PIX
-// ===============================
+app.get('/health', async (req, res) => {
+    try {
+        await db.command({ ping: 1 });
+        res.json({ ok: true, mongo: 'connected' });
+    } catch (error) {
+        res.status(500).json({ ok: false, mongo: 'disconnected', erro: error.message });
+    }
+});
+
 app.post('/criar-pagamento', async (req, res) => {
     try {
-        const { nome, email, whatsapp } = req.body;
+        if (!pedidosCollection) {
+            return res.status(503).json({
+                erro: 'Banco de dados ainda não conectado'
+            });
+        }
+
+        const { nome, email, whatsapp, quantidade } = req.body;
 
         if (!nome) {
             return res.status(400).json({ erro: 'Nome é obrigatório' });
@@ -83,13 +87,17 @@ app.post('/criar-pagamento', async (req, res) => {
             return res.status(400).json({ erro: 'Email é obrigatório' });
         }
 
+        const qtd = Number(quantidade) || 1;
+        const valorUnitario = 10;
+        const valorTotal = qtd * valorUnitario;
+
         const pagamento = await paymentApi.create({
             body: {
-                transaction_amount: 10,
-                description: 'Participação sorteio TonClay',
+                transaction_amount: valorTotal,
+                description: `Participação sorteio TonClay (${qtd} número${qtd > 1 ? 's' : ''})`,
                 payment_method_id: 'pix',
                 payer: {
-                    email: email,
+                    email,
                     first_name: nome
                 },
                 notification_url: 'https://tonclay-backend.onrender.com/webhook'
@@ -98,37 +106,47 @@ app.post('/criar-pagamento', async (req, res) => {
 
         const transactionData = pagamento?.point_of_interaction?.transaction_data || {};
 
-        await pedidosCollection.insertOne({
-            paymentId: String(pagamento.id),
-            nome,
-            email,
-            whatsapp: whatsapp || '',
-            status: pagamento.status || 'pending',
-            numero: null,
-            valor: 10,
-            quantidade: 1,
-            criadoEm: new Date()
-        });
+        try {
+            await pedidosCollection.updateOne(
+                { paymentId: String(pagamento.id) },
+                {
+                    $set: {
+                        paymentId: String(pagamento.id),
+                        nome,
+                        email,
+                        whatsapp: whatsapp || '',
+                        status: pagamento.status || 'pending',
+                        numeros: [],
+                        valor: valorTotal,
+                        quantidade: qtd,
+                        criadoEm: new Date()
+                    }
+                },
+                { upsert: true }
+            );
+            console.log(`✅ Pedido salvo no Mongo para paymentId ${pagamento.id}`);
+        } catch (mongoError) {
+            console.error('⚠️ Pagamento criado, mas falhou ao salvar no Mongo:', mongoError);
+        }
 
         return res.json({
             id: pagamento.id,
             status: pagamento.status,
             qr_code: transactionData.qr_code || '',
             qr_code_base64: transactionData.qr_code_base64 || '',
-            ticket_url: transactionData.ticket_url || ''
+            ticket_url: transactionData.ticket_url || '',
+            valor: valorTotal,
+            quantidade: qtd
         });
     } catch (error) {
         console.error('❌ Erro ao criar pagamento:', error);
         return res.status(500).json({
             erro: 'Erro ao criar pagamento',
-            detalhe: error?.message || error
+            detalhe: error.message || 'erro interno'
         });
     }
 });
 
-// ===============================
-// WEBHOOK
-// ===============================
 app.post('/webhook', async (req, res) => {
     try {
         console.log('🔔 Webhook recebido:', JSON.stringify(req.body));
@@ -145,35 +163,46 @@ app.post('/webhook', async (req, res) => {
         const pagamentoMercadoPago = await paymentApi.get({ id: paymentId });
         const status = pagamentoMercadoPago.status;
 
-        const pedido = await pedidosCollection.findOne({ paymentId: String(paymentId) });
+        let pedido = await pedidosCollection.findOne({ paymentId: String(paymentId) });
 
         if (!pedido) {
-            return res.sendStatus(200);
+            await pedidosCollection.updateOne(
+                { paymentId: String(paymentId) },
+                {
+                    $set: {
+                        paymentId: String(paymentId),
+                        status,
+                        numeros: [],
+                        quantidade: 1,
+                        criadoEm: new Date()
+                    }
+                },
+                { upsert: true }
+            );
+
+            pedido = await pedidosCollection.findOne({ paymentId: String(paymentId) });
         }
 
-        if (status === 'approved' && pedido.numero === null) {
-            const numero = await gerarNumeroUnico();
+        if (status === 'approved' && (!pedido.numeros || pedido.numeros.length === 0)) {
+            const qtd = pedido.quantidade || 1;
+            const numeros = await gerarNumerosUnicos(qtd);
 
             await pedidosCollection.updateOne(
                 { paymentId: String(paymentId) },
                 {
                     $set: {
                         status,
-                        numero,
+                        numeros,
                         aprovadoEm: new Date()
                     }
                 }
             );
 
-            console.log(`✅ Pagamento aprovado. Número gerado para ${paymentId}: ${numero}`);
+            console.log(`✅ Pagamento aprovado. Números gerados para ${paymentId}: ${numeros.join(', ')}`);
         } else {
             await pedidosCollection.updateOne(
                 { paymentId: String(paymentId) },
-                {
-                    $set: {
-                        status
-                    }
-                }
+                { $set: { status } }
             );
         }
 
@@ -184,9 +213,6 @@ app.post('/webhook', async (req, res) => {
     }
 });
 
-// ===============================
-// CONSULTAR STATUS
-// ===============================
 app.get('/status-pagamento/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -200,8 +226,10 @@ app.get('/status-pagamento/:id', async (req, res) => {
         return res.json({
             id: pedido.paymentId,
             status: pedido.status,
-            numero: pedido.numero,
-            nome: pedido.nome
+            numeros: pedido.numeros || [],
+            nome: pedido.nome,
+            quantidade: pedido.quantidade || 1,
+            valor: pedido.valor || 10
         });
     } catch (error) {
         console.error('❌ Erro ao consultar status:', error);
@@ -211,8 +239,14 @@ app.get('/status-pagamento/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-conectarMongo().then(() => {
-    app.listen(PORT, '0.0.0.0', () => {
-        console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    });
-});
+(async () => {
+    try {
+        await conectarMongo();
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log(`🚀 Servidor rodando na porta ${PORT}`);
+        });
+    } catch (error) {
+        console.error('❌ Falha ao iniciar servidor:', error);
+        process.exit(1);
+    }
+})();
