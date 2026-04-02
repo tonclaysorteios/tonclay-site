@@ -9,7 +9,7 @@ app.use(cors());
 
 // 🔐 SUA ACCESS TOKEN DO MERCADO PAGO
 const client = new MercadoPagoConfig({
-    accessToken: 'TEST-8440426272093769-040203-bc1cd28b7791003645b4ac9faac4451c-1711765230'
+    accessToken: process.env.MP_ACCESS_TOKEN
 });
 
 // 🔢 controle simples de números (depois vamos colocar banco)
