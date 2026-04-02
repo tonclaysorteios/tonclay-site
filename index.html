@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TonClay Sorteios</title>
+
+  <style>
+    * {margin:0;padding:0;box-sizing:border-box;font-family:Arial;}
+    body {background:#020617;color:white;display:flex;justify-content:center;}
+    .container {max-width:500px;width:100%;padding:20px;text-align:center;}
+    .logo {width:100px;border-radius:50%;border:3px solid #22c55e;box-shadow:0 0 20px #22c55e;margin-bottom:10px;}
+    h1 {font-size:22px;}
+    .prize {font-size:30px;color:#22c55e;margin:15px 0;font-weight:bold;}
+    .card {background:#1e293b;padding:20px;border-radius:10px;margin-bottom:15px;}
+    input {width:100%;padding:12px;margin:6px 0;border-radius:8px;border:none;}
+    button {width:100%;padding:14px;background:#22c55e;border:none;border-radius:8px;color:white;font-size:16px;cursor:pointer;}
+    .pix-box {display:none;margin-top:15px;text-align:center;}
+    .pix-code {background:#111;padding:10px;border-radius:6px;font-size:12px;word-break:break-all;margin-bottom:10px;}
+    .copy-btn {background:#3b82f6;margin-top:5px;}
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <img src="perfil.png" class="logo">
+  <h1>TonClay Sorteios</h1>
+  <div class="prize">R$300 NO PIX</div>
+
+  <div class="card">
+    <h3>Participar</h3>
+    <input id="name" placeholder="Seu nome">
+    <input id="whatsapp" placeholder="WhatsApp">
+    <input id="email" placeholder="Email">
+    <button onclick="gerarPagamento()">🔥 Garantir meu número</button>
+
+    <div class="pix-box" id="pixBox">
+      <p>Escaneie ou copie o Pix:</p>
+      
+      <div class="pix-code" id="pixCode"></div>
+      
+      <button class="copy-btn" onclick="copiarPix()">📋 Copiar Pix</button>
+
+      <img id="qrImg" style="width:200px; margin-top:10px;">
+
+      <p id="numeroGerado"></p>
+
+      <a href="https://wa.me/5519993209356" target="_blank" 
+      style="display:block; margin-top:10px; background:#25D366; padding:10px; border-radius:8px; text-decoration:none; color:white;">
+      📲 Enviar comprovante no WhatsApp
+      </a>
+
+    </div>
+  </div>
+</div>
+
+<script>
+
+async function gerarPagamento() {
+
+  let nome = document.getElementById('name').value;
+  let email = document.getElementById('email').value;
+
+  if (!nome) {
+    alert('Preencha seu nome');
+    return;
+  }
+
+  try {
+    const response = await fetch('http://localhost:3000/criar-pagamento', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ nome, email })
+    });
+
+    const data = await response.json();
+
+    document.getElementById('pixCode').innerText = data.qr_code;
+
+    document.getElementById('qrImg').src = "data:image/png;base64," + data.qr_code_base64;
+
+    document.getElementById('numeroGerado').innerText = 
+    "Pagamento gerado. Após pagar, envie o comprovante no WhatsApp.";
+
+    document.getElementById('pixBox').style.display = 'block';
+
+  } catch (error) {
+    console.log(error);
+    alert('Erro ao gerar pagamento');
+  }
+}
+
+function copiarPix(){
+  const pix = document.getElementById('pixCode').innerText;
+  navigator.clipboard.writeText(pix);
+  alert('Pix copiado!');
+}
+
+</script>
+
+</body>
+</html>
