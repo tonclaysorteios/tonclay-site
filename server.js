@@ -1,28 +1,53 @@
 const express = require('express');
 const cors = require('cors');
 const { MercadoPagoConfig, Payment } = require('mercadopago');
+const { MongoClient } = require('mongodb');
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
 
-// Mercado Pago
-const client = new MercadoPagoConfig({
+// ===============================
+// CONFIG
+// ===============================
+const clientMP = new MercadoPagoConfig({
     accessToken: process.env.MP_ACCESS_TOKEN
 });
 
-const paymentApi = new Payment(client);
+const paymentApi = new Payment(clientMP);
 
-// "Banco" temporário em memória para testes
-// depois a gente troca por banco real
-const pagamentos = {};
+const mongoUri = process.env.MONGODB_URI;
+const mongoClient = new MongoClient(mongoUri);
 
-// Gera número único de 0 a 99
-function gerarNumeroUnico() {
-    const usados = Object.values(pagamentos)
-        .filter(p => p.numero !== null && p.numero !== undefined)
-        .map(p => p.numero);
+let db;
+let pedidosCollection;
+
+// ===============================
+// CONEXÃO COM MONGODB
+// ===============================
+async function conectarMongo() {
+    try {
+        await mongoClient.connect();
+        db = mongoClient.db('tonclay_sorteios');
+        pedidosCollection = db.collection('pedidos');
+        console.log('✅ MongoDB conectado com sucesso');
+    } catch (error) {
+        console.error('❌ Erro ao conectar no MongoDB:', error);
+    }
+}
+
+// ===============================
+// GERA NÚMERO ÚNICO
+// ===============================
+async function gerarNumeroUnico() {
+    const pedidosAprovados = await pedidosCollection.find({
+        numero: { $ne: null }
+    }).toArray();
+
+    const usados = pedidosAprovados
+        .map(p => p.numero)
+        .filter(n => n !== null && n !== undefined);
 
     if (usados.length >= 100) {
         return null;
@@ -36,12 +61,16 @@ function gerarNumeroUnico() {
     return numero;
 }
 
-// Rota teste
+// ===============================
+// ROTA TESTE
+// ===============================
 app.get('/', (req, res) => {
     res.send('Servidor rodando 🔥');
 });
 
-// Criar pagamento Pix
+// ===============================
+// CRIAR PAGAMENTO PIX
+// ===============================
 app.post('/criar-pagamento', async (req, res) => {
     try {
         const { nome, email, whatsapp } = req.body;
@@ -50,37 +79,46 @@ app.post('/criar-pagamento', async (req, res) => {
             return res.status(400).json({ erro: 'Nome é obrigatório' });
         }
 
+        if (!email) {
+            return res.status(400).json({ erro: 'Email é obrigatório' });
+        }
+
         const pagamento = await paymentApi.create({
             body: {
                 transaction_amount: 10,
                 description: 'Participação sorteio TonClay',
                 payment_method_id: 'pix',
                 payer: {
-                    email: email || 'teste@email.com',
+                    email: email,
                     first_name: nome
                 },
                 notification_url: 'https://tonclay-backend.onrender.com/webhook'
             }
         });
 
-        pagamentos[pagamento.id] = {
-            id: pagamento.id,
-            nome: nome,
-            email: email || 'teste@email.com',
+        const transactionData = pagamento?.point_of_interaction?.transaction_data || {};
+
+        await pedidosCollection.insertOne({
+            paymentId: String(pagamento.id),
+            nome,
+            email,
             whatsapp: whatsapp || '',
             status: pagamento.status || 'pending',
             numero: null,
-            criadoEm: new Date().toISOString()
-        };
+            valor: 10,
+            quantidade: 1,
+            criadoEm: new Date()
+        });
 
         return res.json({
             id: pagamento.id,
             status: pagamento.status,
-            qr_code: pagamento.point_of_interaction.transaction_data.qr_code,
-            qr_code_base64: pagamento.point_of_interaction.transaction_data.qr_code_base64
+            qr_code: transactionData.qr_code || '',
+            qr_code_base64: transactionData.qr_code_base64 || '',
+            ticket_url: transactionData.ticket_url || ''
         });
     } catch (error) {
-        console.error('Erro ao criar pagamento:', error);
+        console.error('❌ Erro ao criar pagamento:', error);
         return res.status(500).json({
             erro: 'Erro ao criar pagamento',
             detalhe: error?.message || error
@@ -88,12 +126,13 @@ app.post('/criar-pagamento', async (req, res) => {
     }
 });
 
-// Webhook do Mercado Pago
+// ===============================
+// WEBHOOK
+// ===============================
 app.post('/webhook', async (req, res) => {
     try {
         console.log('🔔 Webhook recebido:', JSON.stringify(req.body));
 
-        // Mercado Pago pode enviar topic/type e data.id/resource
         const tipo = req.body.type || req.body.topic;
         const paymentId =
             req.body?.data?.id ||
@@ -106,62 +145,74 @@ app.post('/webhook', async (req, res) => {
         const pagamentoMercadoPago = await paymentApi.get({ id: paymentId });
         const status = pagamentoMercadoPago.status;
 
-        if (!pagamentos[paymentId]) {
-            pagamentos[paymentId] = {
-                id: paymentId,
-                nome: '',
-                email: '',
-                whatsapp: '',
-                status: status,
-                numero: null,
-                criadoEm: new Date().toISOString()
-            };
+        const pedido = await pedidosCollection.findOne({ paymentId: String(paymentId) });
+
+        if (!pedido) {
+            return res.sendStatus(200);
         }
 
-        pagamentos[paymentId].status = status;
+        if (status === 'approved' && pedido.numero === null) {
+            const numero = await gerarNumeroUnico();
 
-        if (status === 'approved' && pagamentos[paymentId].numero === null) {
-            const numero = gerarNumeroUnico();
-            pagamentos[paymentId].numero = numero;
-            pagamentos[paymentId].aprovadoEm = new Date().toISOString();
+            await pedidosCollection.updateOne(
+                { paymentId: String(paymentId) },
+                {
+                    $set: {
+                        status,
+                        numero,
+                        aprovadoEm: new Date()
+                    }
+                }
+            );
 
             console.log(`✅ Pagamento aprovado. Número gerado para ${paymentId}: ${numero}`);
+        } else {
+            await pedidosCollection.updateOne(
+                { paymentId: String(paymentId) },
+                {
+                    $set: {
+                        status
+                    }
+                }
+            );
         }
 
         return res.sendStatus(200);
     } catch (error) {
-        console.error('Erro no webhook:', error);
+        console.error('❌ Erro no webhook:', error);
         return res.sendStatus(500);
     }
 });
 
-// Consultar status do pagamento
+// ===============================
+// CONSULTAR STATUS
+// ===============================
 app.get('/status-pagamento/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
-        const pagamentoLocal = pagamentos[id];
+        const pedido = await pedidosCollection.findOne({ paymentId: String(id) });
 
-        if (!pagamentoLocal) {
+        if (!pedido) {
             return res.status(404).json({ erro: 'Pagamento não encontrado' });
         }
 
         return res.json({
-            id: pagamentoLocal.id,
-            status: pagamentoLocal.status,
-            numero: pagamentoLocal.numero,
-            nome: pagamentoLocal.nome
+            id: pedido.paymentId,
+            status: pedido.status,
+            numero: pedido.numero,
+            nome: pedido.nome
         });
     } catch (error) {
-        console.error('Erro ao consultar status:', error);
-        return res.status(500).json({
-            erro: 'Erro ao consultar status'
-        });
+        console.error('❌ Erro ao consultar status:', error);
+        return res.status(500).json({ erro: 'Erro ao consultar status' });
     }
 });
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+conectarMongo().then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    });
 });
