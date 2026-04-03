@@ -13,76 +13,87 @@
     }
 
     body {
-      background: linear-gradient(135deg, #020617, #0f172a);
+      background:
+        radial-gradient(circle at top left, rgba(34,197,94,0.12), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(59,130,246,0.12), transparent 28%),
+        linear-gradient(135deg, #020617, #0f172a);
       color: white;
       min-height: 100vh;
       padding: 20px;
     }
 
     .container {
-      max-width: 1200px;
+      max-width: 1320px;
       margin: 0 auto;
     }
 
-    .header {
+    .header, .box {
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 20px;
+      border-radius: 22px;
       padding: 20px;
       margin-bottom: 20px;
+      box-shadow: 0 16px 36px rgba(0,0,0,0.20);
     }
 
     .title {
-      font-size: 28px;
-      font-weight: bold;
-      margin-bottom: 8px;
+      font-size: 30px;
+      font-weight: 800;
+      margin-bottom: 6px;
     }
 
     .subtitle {
       color: #cbd5e1;
       font-size: 14px;
+      line-height: 1.5;
     }
 
-    .login-box, .stats-box, .table-box {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 20px;
-      padding: 20px;
-      margin-bottom: 20px;
+    .box-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 14px;
     }
 
     .row {
       display: flex;
       gap: 12px;
       flex-wrap: wrap;
-      margin-top: 14px;
     }
 
-    input, button {
-      padding: 14px;
-      border-radius: 12px;
+    input, select, button {
       border: none;
+      border-radius: 14px;
+      padding: 14px;
       font-size: 15px;
     }
 
-    input {
-      flex: 1;
-      min-width: 260px;
+    input, select {
       background: rgba(255,255,255,0.06);
       color: white;
       border: 1px solid rgba(255,255,255,0.08);
       outline: none;
     }
 
-    button {
-      background: linear-gradient(135deg, #16a34a, #22c55e);
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
+    input::placeholder {
+      color: #94a3b8;
     }
 
-    button.secondary {
+    button {
+      cursor: pointer;
+      color: white;
+      font-weight: 700;
+    }
+
+    .btn-green {
+      background: linear-gradient(135deg, #16a34a, #22c55e);
+    }
+
+    .btn-blue {
       background: linear-gradient(135deg, #2563eb, #3b82f6);
+    }
+
+    .btn-orange {
+      background: linear-gradient(135deg, #d97706, #f59e0b);
     }
 
     .error {
@@ -90,22 +101,34 @@
       background: rgba(127,29,29,0.95);
       border: 1px solid rgba(248,113,113,0.35);
       padding: 12px;
-      border-radius: 12px;
+      border-radius: 14px;
       margin-top: 12px;
       font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .success {
+      display: none;
+      background: rgba(20,83,45,0.95);
+      border: 1px solid rgba(34,197,94,0.35);
+      padding: 12px;
+      border-radius: 14px;
+      margin-top: 12px;
+      font-size: 13px;
+      line-height: 1.4;
+      color: #dcfce7;
     }
 
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 14px;
-      margin-top: 12px;
     }
 
     .stat-card {
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 16px;
+      border-radius: 18px;
       padding: 16px;
     }
 
@@ -116,8 +139,8 @@
     }
 
     .stat-value {
-      font-size: 28px;
-      font-weight: bold;
+      font-size: 30px;
+      font-weight: 800;
       color: #22c55e;
     }
 
@@ -129,7 +152,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 980px;
+      min-width: 1180px;
     }
 
     th, td {
@@ -142,15 +165,19 @@
 
     th {
       color: #cbd5e1;
-      font-size: 13px;
+      font-size: 12px;
       text-transform: uppercase;
+    }
+
+    .approved-row {
+      background: rgba(34,197,94,0.05);
     }
 
     .status {
       padding: 8px 12px;
       border-radius: 999px;
       display: inline-block;
-      font-weight: bold;
+      font-weight: 700;
       font-size: 12px;
     }
 
@@ -173,14 +200,14 @@
     }
 
     .number-pill {
-      min-width: 42px;
+      min-width: 52px;
       text-align: center;
       padding: 8px 10px;
       border-radius: 12px;
       background: rgba(34,197,94,0.12);
       border: 1px solid rgba(34,197,94,0.35);
       color: #86efac;
-      font-weight: bold;
+      font-weight: 800;
     }
 
     .muted {
@@ -191,10 +218,36 @@
       display: none;
     }
 
-    @media (max-width: 700px) {
-      .title {
-        font-size: 22px;
-      }
+    .winner-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 16px;
+      padding: 14px;
+      margin-top: 12px;
+    }
+
+    .winner-title {
+      font-weight: 800;
+      margin-bottom: 8px;
+      color: #fbbf24;
+    }
+
+    .result-balls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .ball {
+      min-width: 70px;
+      text-align: center;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(59,130,246,0.12);
+      border: 1px solid rgba(59,130,246,0.35);
+      color: #bfdbfe;
+      font-weight: 800;
     }
   </style>
 </head>
@@ -202,21 +255,22 @@
   <div class="container">
     <div class="header">
       <div class="title">TonClay Admin</div>
-      <div class="subtitle">Acompanhe quem comprou, status do pagamento e quais números pertencem a cada pessoa.</div>
+      <div class="subtitle">Veja a quem pertence cada número, acompanhe os pedidos e confira automaticamente o resultado da Federal.</div>
     </div>
 
-    <div class="login-box">
-      <strong>Entrar no painel</strong>
+    <div class="box">
+      <div class="box-title">Entrar no painel</div>
       <div class="row">
-        <input id="token" type="password" placeholder="Digite a senha do painel">
-        <button onclick="carregarPedidos()">Entrar</button>
-        <button class="secondary" onclick="carregarPedidos()">Atualizar</button>
+        <input id="token" type="password" placeholder="Digite a senha do painel" style="flex:1;min-width:240px;">
+        <button class="btn-green" onclick="carregarPedidos()">Entrar</button>
+        <button class="btn-blue" onclick="carregarPedidos()">Atualizar</button>
       </div>
       <div class="error" id="errorBox"></div>
+      <div class="success" id="successBox"></div>
     </div>
 
-    <div class="stats-box hidden" id="statsBox">
-      <strong>Resumo</strong>
+    <div class="box hidden" id="statsBox">
+      <div class="box-title">Resumo</div>
       <div class="stats">
         <div class="stat-card">
           <div class="stat-label">Total de pedidos</div>
@@ -237,8 +291,25 @@
       </div>
     </div>
 
-    <div class="table-box hidden" id="tableBox">
-      <strong>Participantes</strong>
+    <div class="box hidden" id="buscaBox">
+      <div class="box-title">Buscar dono do número</div>
+      <div class="row">
+        <input id="numeroBusca" type="text" placeholder="Digite o número com 5 dígitos, ex: 08372" style="flex:1;min-width:260px;">
+        <button class="btn-orange" onclick="buscarNumero()">Buscar número</button>
+      </div>
+      <div id="resultadoBusca"></div>
+    </div>
+
+    <div class="box hidden" id="federalBox">
+      <div class="box-title">Conferir resultado automático da Federal</div>
+      <div class="row">
+        <button class="btn-orange" onclick="consultarFederal()">Conferir agora</button>
+      </div>
+      <div id="resultadoFederal"></div>
+    </div>
+
+    <div class="box hidden" id="tableBox">
+      <div class="box-title">Pedidos</div>
       <div class="table-scroll">
         <table>
           <thead>
@@ -261,6 +332,8 @@
   </div>
 
   <script>
+    let pedidosOriginais = [];
+
     function mostrarErro(texto) {
       const box = document.getElementById('errorBox');
       box.style.display = 'block';
@@ -269,6 +342,18 @@
 
     function esconderErro() {
       const box = document.getElementById('errorBox');
+      box.style.display = 'none';
+      box.innerText = '';
+    }
+
+    function mostrarSucesso(texto) {
+      const box = document.getElementById('successBox');
+      box.style.display = 'block';
+      box.innerText = texto;
+    }
+
+    function esconderSucesso() {
+      const box = document.getElementById('successBox');
       box.style.display = 'none';
       box.innerText = '';
     }
@@ -287,16 +372,45 @@
 
       return `
         <div class="numbers">
-          ${numeros.map(n => `<div class="number-pill">${String(n).padStart(2, '0')}</div>`).join('')}
+          ${numeros.map(n => `<div class="number-pill">${String(n).padStart(5, '0')}</div>`).join('')}
         </div>
       `;
     }
 
     function formatarData(dataIso) {
       if (!dataIso) return '—';
+      return new Date(dataIso).toLocaleString('pt-BR');
+    }
 
-      const data = new Date(dataIso);
-      return data.toLocaleString('pt-BR');
+    function atualizarResumo(pedidos) {
+      document.getElementById('totalPedidos').innerText = pedidos.length;
+      document.getElementById('totalAprovados').innerText = pedidos.filter(p => p.status === 'approved').length;
+      document.getElementById('totalPendentes').innerText = pedidos.filter(p => p.status !== 'approved').length;
+      document.getElementById('totalNumeros').innerText = pedidos.reduce((acc, p) => acc + ((p.numeros || []).length), 0);
+    }
+
+    function renderTabela(pedidos) {
+      const tbody = document.getElementById('tabelaPedidos');
+      tbody.innerHTML = '';
+
+      pedidos.forEach(pedido => {
+        const tr = document.createElement('tr');
+        if (pedido.status === 'approved') tr.classList.add('approved-row');
+
+        tr.innerHTML = `
+          <td>${pedido.nome || '—'}</td>
+          <td>${pedido.whatsapp || '—'}</td>
+          <td>${pedido.email || '—'}</td>
+          <td>${formatarStatus(pedido.status)}</td>
+          <td>${pedido.quantidade || 1}</td>
+          <td>R$ ${(Number(pedido.valor || 0)).toFixed(2).replace('.', ',')}</td>
+          <td>${formatarNumeros(pedido.numeros)}</td>
+          <td><span class="muted">${pedido.paymentId || '—'}</span></td>
+          <td>${formatarData(pedido.criadoEm)}</td>
+        `;
+
+        tbody.appendChild(tr);
+      });
     }
 
     async function carregarPedidos() {
@@ -309,6 +423,7 @@
 
       try {
         esconderErro();
+        esconderSucesso();
 
         const response = await fetch(`https://tonclay-backend.onrender.com/admin-pedidos?token=${encodeURIComponent(token)}`);
         const data = await response.json();
@@ -318,37 +433,122 @@
           return;
         }
 
-        const pedidos = Array.isArray(data.pedidos) ? data.pedidos : [];
+        pedidosOriginais = Array.isArray(data.pedidos) ? data.pedidos : [];
 
         document.getElementById('statsBox').classList.remove('hidden');
+        document.getElementById('buscaBox').classList.remove('hidden');
+        document.getElementById('federalBox').classList.remove('hidden');
         document.getElementById('tableBox').classList.remove('hidden');
 
-        document.getElementById('totalPedidos').innerText = pedidos.length;
-        document.getElementById('totalAprovados').innerText = pedidos.filter(p => p.status === 'approved').length;
-        document.getElementById('totalPendentes').innerText = pedidos.filter(p => p.status !== 'approved').length;
-        document.getElementById('totalNumeros').innerText = pedidos.reduce((acc, p) => acc + (Array.isArray(p.numeros) ? p.numeros.length : 0), 0);
+        atualizarResumo(pedidosOriginais);
+        renderTabela(pedidosOriginais);
 
-        const tbody = document.getElementById('tabelaPedidos');
-        tbody.innerHTML = '';
-
-        pedidos.forEach(pedido => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${pedido.nome || '—'}</td>
-            <td>${pedido.whatsapp || '—'}</td>
-            <td>${pedido.email || '—'}</td>
-            <td>${formatarStatus(pedido.status)}</td>
-            <td>${pedido.quantidade || 1}</td>
-            <td>R$ ${(Number(pedido.valor || 0)).toFixed(2).replace('.', ',')}</td>
-            <td>${formatarNumeros(pedido.numeros)}</td>
-            <td><span class="muted">${pedido.paymentId || '—'}</span></td>
-            <td>${formatarData(pedido.criadoEm)}</td>
-          `;
-          tbody.appendChild(tr);
-        });
+        mostrarSucesso('Painel carregado com sucesso.');
       } catch (error) {
         console.error(error);
         mostrarErro('Falha ao carregar pedidos.');
+      }
+    }
+
+    async function buscarNumero() {
+      const token = document.getElementById('token').value.trim();
+      const numero = document.getElementById('numeroBusca').value.trim();
+      const box = document.getElementById('resultadoBusca');
+
+      box.innerHTML = '';
+
+      if (!token || !numero) {
+        mostrarErro('Digite a senha e o número.');
+        return;
+      }
+
+      try {
+        esconderErro();
+
+        const response = await fetch(`https://tonclay-backend.onrender.com/admin-buscar-numero/${encodeURIComponent(numero)}?token=${encodeURIComponent(token)}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          box.innerHTML = `<div class="winner-card"><div class="winner-title">Número não encontrado</div><div>${data.erro || 'Sem resultado.'}</div></div>`;
+          return;
+        }
+
+        const p = data.pedido;
+
+        box.innerHTML = `
+          <div class="winner-card">
+            <div class="winner-title">Dono do número ${data.numero}</div>
+            <div><strong>Nome:</strong> ${p.nome || '—'}</div>
+            <div><strong>WhatsApp:</strong> ${p.whatsapp || '—'}</div>
+            <div><strong>Email:</strong> ${p.email || '—'}</div>
+            <div><strong>Status:</strong> ${p.status || '—'}</div>
+            <div style="margin-top:10px;"><strong>Números do pedido:</strong> ${formatarNumeros(p.numeros)}</div>
+          </div>
+        `;
+      } catch (error) {
+        console.error(error);
+        mostrarErro('Erro ao buscar número.');
+      }
+    }
+
+    async function consultarFederal() {
+      const token = document.getElementById('token').value.trim();
+      const box = document.getElementById('resultadoFederal');
+
+      box.innerHTML = '';
+
+      if (!token) {
+        mostrarErro('Digite a senha do painel.');
+        return;
+      }
+
+      try {
+        esconderErro();
+
+        const response = await fetch(`https://tonclay-backend.onrender.com/admin-resultado-federal?token=${encodeURIComponent(token)}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          box.innerHTML = `<div class="winner-card"><div class="winner-title">Erro ao consultar Federal</div><div>${data.erro || 'Falha.'}</div></div>`;
+          return;
+        }
+
+        const resultadosHtml = `
+          <div class="result-balls">
+            ${data.resultados.map(r => `<div class="ball">${r.premio}º ${r.numero}</div>`).join('')}
+          </div>
+        `;
+
+        const vencedores = Array.isArray(data.vencedores) ? data.vencedores : [];
+
+        const vencedoresHtml = vencedores.length === 0
+          ? `<div class="winner-card"><div class="winner-title">Nenhum vencedor encontrado nos números vendidos</div></div>`
+          : vencedores.map(v => `
+              <div class="winner-card">
+                <div class="winner-title">${v.nome || 'Sem nome'} • Número ${v.numero}</div>
+                <div><strong>WhatsApp:</strong> ${v.whatsapp || '—'}</div>
+                <div><strong>Email:</strong> ${v.email || '—'}</div>
+                <div><strong>Payment ID:</strong> ${v.paymentId || '—'}</div>
+                <div style="margin-top:8px;">
+                  <strong>Acertos:</strong>
+                  ${v.match.exato ? ' EXATO ' : ''}
+                  ${v.match.milhar ? ' MILHAR ' : ''}
+                  ${v.match.centena ? ' CENTENA ' : ''}
+                  ${v.match.dezena ? ' DEZENA ' : ''}
+                </div>
+              </div>
+            `).join('');
+
+        box.innerHTML = `
+          <div class="winner-card">
+            <div class="winner-title">Resultado oficial consultado</div>
+            <div>${resultadosHtml}</div>
+          </div>
+          ${vencedoresHtml}
+        `;
+      } catch (error) {
+        console.error(error);
+        mostrarErro('Erro ao consultar resultado da Federal.');
       }
     }
   </script>
