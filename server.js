@@ -13,7 +13,10 @@ const clientMP = new MercadoPagoConfig({
 
 const paymentApi = new Payment(clientMP);
 
-// memória temporária
+// Senha simples do painel admin
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'tonclay123';
+
+// Memória temporária
 const pedidos = {};
 
 function gerarNumerosUnicos(quantidade = 1) {
@@ -85,7 +88,8 @@ app.post('/criar-pagamento', async (req, res) => {
             numeros: [],
             valor: valorTotal,
             quantidade: qtd,
-            criadoEm: new Date()
+            criadoEm: new Date().toISOString(),
+            atualizadoEm: new Date().toISOString()
         };
 
         return res.json({
@@ -132,17 +136,19 @@ app.post('/webhook', async (req, res) => {
                 numeros: [],
                 quantidade: 1,
                 valor: 10,
-                criadoEm: new Date()
+                criadoEm: new Date().toISOString(),
+                atualizadoEm: new Date().toISOString()
             };
         }
 
         const pedido = pedidos[String(paymentId)];
         pedido.status = status;
+        pedido.atualizadoEm = new Date().toISOString();
 
         if (status === 'approved' && (!pedido.numeros || pedido.numeros.length === 0)) {
             const numeros = gerarNumerosUnicos(pedido.quantidade || 1);
             pedido.numeros = numeros || [];
-            pedido.aprovadoEm = new Date();
+            pedido.aprovadoEm = new Date().toISOString();
 
             console.log(`✅ Pagamento aprovado. Números gerados para ${paymentId}: ${pedido.numeros.join(', ')}`);
         }
@@ -174,6 +180,28 @@ app.get('/status-pagamento/:id', (req, res) => {
     } catch (error) {
         console.error('❌ Erro ao consultar status:', error);
         return res.status(500).json({ erro: 'Erro ao consultar status' });
+    }
+});
+
+// Painel admin protegido por token
+app.get('/admin-pedidos', (req, res) => {
+    try {
+        const token = req.query.token;
+
+        if (token !== ADMIN_TOKEN) {
+            return res.status(401).json({ erro: 'Não autorizado' });
+        }
+
+        const lista = Object.values(pedidos)
+            .sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
+
+        return res.json({
+            total: lista.length,
+            pedidos: lista
+        });
+    } catch (error) {
+        console.error('❌ Erro ao listar pedidos:', error);
+        return res.status(500).json({ erro: 'Erro ao listar pedidos' });
     }
 });
 
