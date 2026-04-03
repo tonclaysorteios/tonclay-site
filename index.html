@@ -1,562 +1,240 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TonClay Sorteios</title>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TonClay Admin Pro</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-      font-family: Arial, sans-serif;
-    }
-
+    * { margin:0; padding:0; box-sizing:border-box; font-family:Arial,sans-serif; }
     body {
-      min-height: 100vh;
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
       background:
-        radial-gradient(circle at top, rgba(34,197,94,0.15), transparent 30%),
-        radial-gradient(circle at bottom, rgba(59,130,246,0.18), transparent 30%),
-        linear-gradient(135deg, #020617, #0f172a, #111827);
-      overflow-x: hidden;
+        radial-gradient(circle at top left, rgba(34,197,94,0.12), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(59,130,246,0.12), transparent 28%),
+        linear-gradient(135deg, #020617, #0f172a);
+      color:white;
+      min-height:100vh;
+      padding:20px;
     }
-
-    .background-glow {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      overflow: hidden;
-      z-index: 0;
+    .container { max-width:1360px; margin:0 auto; }
+    .header,.box {
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:22px;
+      padding:20px;
+      margin-bottom:20px;
+      box-shadow:0 16px 36px rgba(0,0,0,0.20);
     }
-
-    .glow {
-      position: absolute;
-      border-radius: 50%;
-      filter: blur(70px);
-      opacity: 0.24;
-      animation: floatGlow 8s ease-in-out infinite;
+    .title { font-size:32px; font-weight:800; margin-bottom:6px; }
+    .subtitle { color:#cbd5e1; font-size:14px; line-height:1.5; }
+    .box-title { font-size:18px; font-weight:700; margin-bottom:14px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; }
+    input,button {
+      border:none;
+      border-radius:14px;
+      padding:14px;
+      font-size:15px;
     }
-
-    .glow.one {
-      width: 220px;
-      height: 220px;
-      background: #22c55e;
-      top: 8%;
-      left: 8%;
+    input {
+      background:rgba(255,255,255,0.06);
+      color:white;
+      border:1px solid rgba(255,255,255,0.08);
+      outline:none;
     }
-
-    .glow.two {
-      width: 260px;
-      height: 260px;
-      background: #3b82f6;
-      bottom: 5%;
-      right: 8%;
-      animation-delay: 2s;
+    input::placeholder { color:#94a3b8; }
+    button { cursor:pointer; color:white; font-weight:700; }
+    .btn-green { background:linear-gradient(135deg,#16a34a,#22c55e); }
+    .btn-blue { background:linear-gradient(135deg,#2563eb,#3b82f6); }
+    .btn-orange { background:linear-gradient(135deg,#d97706,#f59e0b); }
+    .btn-copy {
+      background:linear-gradient(135deg,#0f766e,#14b8a6);
+      padding:8px 12px;
+      font-size:12px;
+      border-radius:10px;
     }
-
-    .glow.three {
-      width: 180px;
-      height: 180px;
-      background: #f59e0b;
-      top: 45%;
-      right: 18%;
-      animation-delay: 4s;
+    .error,.success {
+      display:none;
+      padding:12px;
+      border-radius:14px;
+      margin-top:12px;
+      font-size:13px;
+      line-height:1.4;
     }
-
-    @keyframes floatGlow {
-      0%, 100% { transform: translateY(0px) scale(1); }
-      50% { transform: translateY(-18px) scale(1.08); }
+    .error {
+      background:rgba(127,29,29,0.95);
+      border:1px solid rgba(248,113,113,0.35);
     }
-
-    .container {
-      width: 100%;
-      max-width: 560px;
-      position: relative;
-      z-index: 1;
+    .success {
+      background:rgba(20,83,45,0.95);
+      border:1px solid rgba(34,197,94,0.35);
+      color:#dcfce7;
     }
-
-    .card {
-      background: rgba(15, 23, 42, 0.88);
-      backdrop-filter: blur(14px);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 22px;
-      padding: 26px 22px;
-      box-shadow:
-        0 0 0 1px rgba(255,255,255,0.03),
-        0 18px 50px rgba(0,0,0,0.35);
-      animation: fadeUp 0.6s ease;
+    .stats {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:14px;
     }
-
-    @keyframes fadeUp {
-      from {
-        opacity: 0;
-        transform: translateY(18px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    .stat-card {
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:18px;
+      padding:16px;
     }
-
-    .logo-wrap {
-      display: flex;
-      justify-content: center;
-      margin-bottom: 14px;
+    .stat-label { color:#cbd5e1; font-size:13px; margin-bottom:8px; }
+    .stat-value { font-size:30px; font-weight:800; color:#22c55e; }
+    .table-scroll { overflow-x:auto; margin-top:16px; }
+    table { width:100%; border-collapse:collapse; min-width:1180px; }
+    th,td {
+      text-align:left;
+      padding:14px 10px;
+      border-bottom:1px solid rgba(255,255,255,0.08);
+      vertical-align:top;
+      font-size:14px;
     }
-
-    .logo {
-      width: 102px;
-      height: 102px;
-      object-fit: cover;
-      border-radius: 50%;
-      border: 3px solid #22c55e;
-      box-shadow:
-        0 0 18px rgba(34,197,94,0.55),
-        0 0 35px rgba(34,197,94,0.25);
-      animation: pulseLogo 2.2s infinite ease-in-out;
-      background: #0b1220;
+    th { color:#cbd5e1; font-size:12px; text-transform:uppercase; }
+    .approved-row { background:rgba(34,197,94,0.05); }
+    .status {
+      padding:8px 12px;
+      border-radius:999px;
+      display:inline-block;
+      font-weight:700;
+      font-size:12px;
     }
-
-    @keyframes pulseLogo {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.04); }
+    .pending {
+      background:rgba(245,158,11,0.15);
+      color:#fbbf24;
+      border:1px solid rgba(245,158,11,0.35);
     }
-
-    .badge {
-      display: inline-block;
-      background: rgba(34,197,94,0.12);
-      color: #86efac;
-      border: 1px solid rgba(34,197,94,0.35);
-      padding: 8px 14px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: bold;
-      letter-spacing: 0.6px;
-      margin-bottom: 12px;
-      box-shadow: 0 0 20px rgba(34,197,94,0.08);
+    .approved {
+      background:rgba(34,197,94,0.15);
+      color:#86efac;
+      border:1px solid rgba(34,197,94,0.35);
     }
-
-    h1 {
-      font-size: 30px;
-      line-height: 1.1;
-      margin-bottom: 6px;
-    }
-
-    .subtitle {
-      color: #cbd5e1;
-      font-size: 14px;
-      margin-bottom: 18px;
-    }
-
-    .hero-box {
-      background: linear-gradient(135deg, rgba(34,197,94,0.16), rgba(59,130,246,0.10));
-      border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 18px;
-      padding: 18px;
-      margin-bottom: 18px;
-      box-shadow: inset 0 0 25px rgba(255,255,255,0.03);
-    }
-
-    .prize-label {
-      font-size: 13px;
-      color: #cbd5e1;
-      margin-bottom: 8px;
-    }
-
-    .prize {
-      font-size: 40px;
-      font-weight: 800;
-      color: #22c55e;
-      text-shadow: 0 0 16px rgba(34,197,94,0.25);
-      margin-bottom: 10px;
-    }
-
-    .mini-info {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .mini-pill {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.06);
-      color: #e2e8f0;
-      font-size: 12px;
-      padding: 8px 12px;
-      border-radius: 999px;
-    }
-
-    .form-box {
-      margin-top: 18px;
-      text-align: left;
-    }
-
-    .label {
-      display: block;
-      font-size: 13px;
-      color: #cbd5e1;
-      margin: 12px 0 6px;
-    }
-
-    input, select {
-      width: 100%;
-      padding: 14px 14px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.08);
-      background: rgba(255,255,255,0.04);
-      color: white;
-      outline: none;
-      transition: 0.2s ease;
-      font-size: 15px;
-    }
-
-    input::placeholder {
-      color: #94a3b8;
-    }
-
-    input:focus, select:focus {
-      border-color: rgba(34,197,94,0.8);
-      box-shadow: 0 0 0 4px rgba(34,197,94,0.10);
-    }
-
-    .summary-box {
-      margin-top: 16px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 16px;
-      padding: 14px;
-    }
-
-    .summary-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      color: #e2e8f0;
-      font-size: 14px;
-      margin: 7px 0;
-    }
-
-    .summary-total {
-      font-size: 24px;
-      color: #22c55e;
-      font-weight: 800;
-    }
-
-    .buy-button {
-      width: 100%;
-      margin-top: 18px;
-      padding: 15px;
-      border: none;
-      border-radius: 14px;
-      color: white;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      background: linear-gradient(135deg, #16a34a, #22c55e);
-      box-shadow: 0 12px 30px rgba(34,197,94,0.25);
-      transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-    }
-
-    .buy-button:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 16px 34px rgba(34,197,94,0.30);
-    }
-
-    .buy-button:disabled {
-      opacity: 0.65;
-      cursor: not-allowed;
-    }
-
-    .loading {
-      display: none;
-      text-align: center;
-      margin-top: 14px;
-      color: #cbd5e1;
-      font-size: 14px;
-    }
-
-    .error-box {
-      display: none;
-      margin-top: 16px;
-      background: rgba(127,29,29,0.95);
-      border: 1px solid rgba(248,113,113,0.35);
-      color: white;
-      padding: 14px;
-      border-radius: 14px;
-      font-size: 13px;
-      line-height: 1.4;
-      word-break: break-word;
-    }
-
-    .pix-box {
-      display: none;
-      margin-top: 20px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 18px;
-      padding: 18px;
-      text-align: center;
-      animation: fadeUp 0.35s ease;
-    }
-
-    .pix-title {
-      font-size: 16px;
-      font-weight: bold;
-      margin-bottom: 12px;
-    }
-
-    .pix-code {
-      background: #0b1220;
-      border: 1px solid rgba(255,255,255,0.06);
-      padding: 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      line-height: 1.45;
-      word-break: break-all;
-      color: #e2e8f0;
-      margin-bottom: 12px;
-    }
-
-    .copy-btn {
-      width: 100%;
-      padding: 13px;
-      border: none;
-      border-radius: 12px;
-      color: white;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      background: linear-gradient(135deg, #2563eb, #3b82f6);
-      box-shadow: 0 12px 28px rgba(59,130,246,0.25);
-      margin-bottom: 14px;
-    }
-
-    #qrImg {
-      display: none;
-      width: 220px;
-      max-width: 100%;
-      margin: 10px auto 0;
-      border-radius: 16px;
-      background: white;
-      padding: 10px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
-    }
-
-    .ticket-link {
-      display: none;
-      margin-top: 12px;
-      background: linear-gradient(135deg, #d97706, #f59e0b);
-      color: white;
-      text-decoration: none;
-      border-radius: 12px;
-      padding: 12px;
-      font-weight: bold;
-    }
-
-    .small {
-      font-size: 13px;
-      color: #cbd5e1;
-      margin-top: 12px;
-      line-height: 1.45;
-      word-break: break-word;
-    }
-
-    .status-box {
-      display: none;
-      margin-top: 20px;
-      padding: 18px;
-      border-radius: 18px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.06);
-      animation: fadeUp 0.35s ease;
-    }
-
-    .status-text {
-      font-size: 16px;
-      margin-bottom: 10px;
-    }
-
-    .numbers-box {
-      margin-top: 10px;
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
+    .numbers { display:flex; gap:8px; flex-wrap:wrap; }
     .number-pill {
-      min-width: 58px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, rgba(34,197,94,0.18), rgba(34,197,94,0.08));
-      border: 1px solid rgba(34,197,94,0.35);
-      color: #86efac;
-      font-size: 22px;
-      font-weight: 800;
-      box-shadow: 0 8px 20px rgba(34,197,94,0.12);
-      animation: popIn 0.3s ease;
+      min-width:54px;
+      text-align:center;
+      padding:8px 10px;
+      border-radius:12px;
+      background:rgba(34,197,94,0.12);
+      border:1px solid rgba(34,197,94,0.35);
+      color:#86efac;
+      font-weight:800;
     }
-
-    @keyframes popIn {
-      from { transform: scale(0.75); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
+    .muted { color:#94a3b8; }
+    .hidden { display:none; }
+    .winner-highlight {
+      background:linear-gradient(135deg, rgba(217,119,6,0.16), rgba(245,158,11,0.10));
+      border:1px solid rgba(245,158,11,0.35);
+      border-radius:18px;
+      padding:18px;
+      margin-top:14px;
     }
-
-    .footer-note {
-      margin-top: 16px;
-      text-align: center;
-      color: #94a3b8;
-      font-size: 12px;
-      line-height: 1.5;
+    .winner-title { font-size:20px; font-weight:800; color:#fbbf24; margin-bottom:10px; }
+    .result-balls { display:flex; gap:10px; flex-wrap:wrap; margin-top:10px; }
+    .ball {
+      min-width:84px;
+      text-align:center;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(59,130,246,0.12);
+      border:1px solid rgba(59,130,246,0.35);
+      color:#bfdbfe;
+      font-weight:800;
     }
-
-    @media (max-width: 600px) {
-      .card {
-        padding: 22px 16px;
-      }
-
-      h1 {
-        font-size: 26px;
-      }
-
-      .prize {
-        font-size: 34px;
-      }
-
-      .summary-total {
-        font-size: 22px;
-      }
-
-      .number-pill {
-        font-size: 20px;
-        min-width: 54px;
-      }
+    .winner-card {
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.06);
+      border-radius:16px;
+      padding:14px;
+      margin-top:12px;
     }
+    .search-grid { display:grid; gap:12px; }
+    @media (max-width:700px) { .title { font-size:24px; } }
   </style>
 </head>
 <body>
-  <div class="background-glow">
-    <div class="glow one"></div>
-    <div class="glow two"></div>
-    <div class="glow three"></div>
-  </div>
-
   <div class="container">
-    <div class="card">
-      <div style="text-align:center;">
-        <div class="badge">🔥 SORTEIO ATIVO AGORA</div>
+    <div class="header">
+      <div class="title">TonClay Admin Pro</div>
+      <div class="subtitle">Controle total dos pedidos, números de 5 dígitos e conferência automática pela Loteria Federal.</div>
+    </div>
 
-        <div class="logo-wrap">
-          <img src="perfil.png" class="logo" alt="Logo TonClay Sorteios">
-        </div>
-
-        <h1>TonClay Sorteios</h1>
-        <p class="subtitle">Concorra ao prêmio e receba seus números automaticamente após a aprovação do pagamento.</p>
+    <div class="box">
+      <div class="box-title">Acesso ao painel</div>
+      <div class="row">
+        <input id="token" type="password" placeholder="Digite a senha do painel" style="flex:1;min-width:240px;">
+        <button class="btn-green" onclick="carregarPedidos()">Entrar</button>
+        <button class="btn-blue" onclick="carregarPedidos()">Atualizar</button>
+        <button class="btn-orange" onclick="exportarCsv()">Exportar CSV</button>
       </div>
+      <div class="error" id="errorBox"></div>
+      <div class="success" id="successBox"></div>
+    </div>
 
-      <div class="hero-box">
-        <div class="prize-label">Prêmio atual</div>
-        <div class="prize">R$300 NO PIX</div>
-
-        <div class="mini-info">
-          <div class="mini-pill">⚡ Pix automático</div>
-          <div class="mini-pill">🎯 Números instantâneos</div>
-          <div class="mini-pill">🔒 Compra segura</div>
+    <div class="box hidden" id="statsBox">
+      <div class="box-title">Resumo</div>
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-label">Total de pedidos</div>
+          <div class="stat-value" id="totalPedidos">0</div>
         </div>
-      </div>
-
-      <div class="form-box">
-        <label class="label">Seu nome</label>
-        <input id="name" type="text" placeholder="Digite seu nome">
-
-        <label class="label">WhatsApp</label>
-        <input id="whatsapp" type="text" placeholder="Digite seu WhatsApp">
-
-        <label class="label">Seu email</label>
-        <input id="email" type="email" placeholder="Digite seu email real">
-
-        <label class="label">Quantidade de números</label>
-        <select id="quantidade" onchange="atualizarResumo()">
-          <option value="1">1 número</option>
-          <option value="2">2 números</option>
-          <option value="3">3 números</option>
-          <option value="5">5 números</option>
-          <option value="10">10 números</option>
-        </select>
-
-        <div class="summary-box">
-          <div class="summary-row">
-            <span>Quantidade:</span>
-            <strong id="resumoQtd">1 número</strong>
-          </div>
-          <div class="summary-row">
-            <span>Valor por número:</span>
-            <strong>R$ 10,00</strong>
-          </div>
-          <div class="summary-row">
-            <span>Total:</span>
-            <span class="summary-total" id="resumoTotal">R$ 10,00</span>
-          </div>
+        <div class="stat-card">
+          <div class="stat-label">Pagamentos aprovados</div>
+          <div class="stat-value" id="totalAprovados">0</div>
         </div>
-
-        <button class="buy-button" id="payBtn" onclick="gerarPagamento()">
-          🚀 Garantir meus números
-        </button>
-
-        <div class="loading" id="loadingBox">Gerando pagamento...</div>
-        <div class="error-box" id="errorBox"></div>
-
-        <div class="pix-box" id="pixBox">
-          <div class="pix-title">Escaneie ou copie o Pix</div>
-
-          <div class="pix-code" id="pixCode"></div>
-
-          <button class="copy-btn" onclick="copiarPix()">📋 Copiar código Pix</button>
-
-          <img id="qrImg" alt="QR Code Pix">
-
-          <a id="ticketLink" class="ticket-link" href="#" target="_blank">Abrir cobrança</a>
-
-          <p class="small">
-            Assim que o pagamento for aprovado, seus números aparecerão automaticamente abaixo.
-          </p>
-
-          <p class="small" id="paymentIdBox"></p>
+        <div class="stat-card">
+          <div class="stat-label">Pagamentos pendentes</div>
+          <div class="stat-value" id="totalPendentes">0</div>
         </div>
-
-        <div class="status-box" id="statusBox">
-          <div class="status-text" id="statusTexto">⏳ Aguardando pagamento...</div>
-          <div class="numbers-box" id="numbersBox"></div>
+        <div class="stat-card">
+          <div class="stat-label">Números vendidos</div>
+          <div class="stat-value" id="totalNumeros">0</div>
         </div>
       </div>
+    </div>
 
-      <div class="footer-note">
-        TonClay Sorteios • Transparência, rapidez e emoção em cada participação.
+    <div class="box hidden" id="buscaBox">
+      <div class="box-title">Buscar dono do número</div>
+      <div class="row">
+        <input id="numeroBusca" type="text" placeholder="Digite o número com 5 dígitos, ex: 08372" style="flex:1;min-width:260px;">
+        <button class="btn-orange" onclick="buscarNumero()">Buscar número</button>
+      </div>
+      <div id="resultadoBusca"></div>
+    </div>
+
+    <div class="box hidden" id="federalBox">
+      <div class="box-title">Conferir resultado automático da Federal</div>
+      <div class="row">
+        <button class="btn-orange" onclick="consultarFederal()">Conferir agora</button>
+      </div>
+      <div id="resultadoFederal"></div>
+    </div>
+
+    <div class="box hidden" id="tableBox">
+      <div class="box-title">Pedidos</div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Nome</th>
+              <th>WhatsApp</th>
+              <th>Email</th>
+              <th>Status</th>
+              <th>Qtd</th>
+              <th>Valor</th>
+              <th>Números</th>
+              <th>Payment ID</th>
+              <th>Data</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaPedidos"></tbody>
+        </table>
       </div>
     </div>
   </div>
 
   <script>
-    let paymentId = null;
-    let intervaloStatus = null;
-    const valorUnitario = 10;
-
-    function atualizarResumo() {
-      const qtd = Number(document.getElementById('quantidade').value);
-      const total = qtd * valorUnitario;
-
-      document.getElementById('resumoQtd').innerText = qtd === 1 ? '1 número' : `${qtd} números`;
-      document.getElementById('resumoTotal').innerText =
-        total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    }
+    let pedidosOriginais = [];
 
     function mostrarErro(texto) {
       const box = document.getElementById('errorBox');
@@ -570,169 +248,217 @@
       box.innerText = '';
     }
 
-    function resetTela() {
-      paymentId = null;
-
-      if (intervaloStatus) {
-        clearInterval(intervaloStatus);
-        intervaloStatus = null;
-      }
-
-      document.getElementById('pixBox').style.display = 'none';
-      document.getElementById('statusBox').style.display = 'none';
-      document.getElementById('pixCode').innerText = '';
-      document.getElementById('qrImg').src = '';
-      document.getElementById('qrImg').style.display = 'none';
-      document.getElementById('ticketLink').href = '#';
-      document.getElementById('ticketLink').style.display = 'none';
-      document.getElementById('paymentIdBox').innerText = '';
-      document.getElementById('statusTexto').innerText = '⏳ Aguardando pagamento...';
-      document.getElementById('numbersBox').innerHTML = '';
+    function mostrarSucesso(texto) {
+      const box = document.getElementById('successBox');
+      box.style.display = 'block';
+      box.innerText = texto;
     }
 
-    async function gerarPagamento() {
-      const nome = document.getElementById('name').value.trim();
-      const whatsapp = document.getElementById('whatsapp').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const quantidade = Number(document.getElementById('quantidade').value);
+    function esconderSucesso() {
+      const box = document.getElementById('successBox');
+      box.style.display = 'none';
+      box.innerText = '';
+    }
 
-      if (!nome) {
-        mostrarErro('Preencha seu nome.');
-        return;
+    function formatarStatus(status) {
+      if (status === 'approved') {
+        return '<span class="status approved">Aprovado</span>';
+      }
+      return '<span class="status pending">Pendente</span>';
+    }
+
+    function formatarNumeros(numeros) {
+      if (!Array.isArray(numeros) || numeros.length === 0) {
+        return '<span class="muted">—</span>';
       }
 
-      if (!email) {
-        mostrarErro('Preencha um email real.');
+      return `
+        <div class="numbers">
+          ${numeros.map(n => `<div class="number-pill">${String(n).padStart(5, '0')}</div>`).join('')}
+        </div>
+      `;
+    }
+
+    function formatarData(dataIso) {
+      if (!dataIso) return '—';
+      return new Date(dataIso).toLocaleString('pt-BR');
+    }
+
+    function atualizarResumo(pedidos) {
+      document.getElementById('totalPedidos').innerText = pedidos.length;
+      document.getElementById('totalAprovados').innerText = pedidos.filter(p => p.status === 'approved').length;
+      document.getElementById('totalPendentes').innerText = pedidos.filter(p => p.status !== 'approved').length;
+      document.getElementById('totalNumeros').innerText = pedidos.reduce((acc, p) => acc + ((p.numeros || []).length), 0);
+    }
+
+    function renderTabela(pedidos) {
+      const tbody = document.getElementById('tabelaPedidos');
+      tbody.innerHTML = '';
+
+      pedidos.forEach(pedido => {
+        const tr = document.createElement('tr');
+        if (pedido.status === 'approved') tr.classList.add('approved-row');
+
+        tr.innerHTML = `
+          <td>${pedido.nome || '—'}</td>
+          <td>${pedido.whatsapp || '—'}</td>
+          <td>${pedido.email || '—'}</td>
+          <td>${formatarStatus(pedido.status)}</td>
+          <td>${pedido.quantidade || 1}</td>
+          <td>R$ ${(Number(pedido.valor || 0)).toFixed(2).replace('.', ',')}</td>
+          <td>${formatarNumeros(pedido.numeros)}</td>
+          <td><span class="muted">${pedido.paymentId || '—'}</span></td>
+          <td>${formatarData(pedido.criadoEm)}</td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function carregarPedidos() {
+      const token = document.getElementById('token').value.trim();
+
+      if (!token) {
+        mostrarErro('Digite a senha do painel.');
         return;
       }
 
       try {
         esconderErro();
-        resetTela();
+        esconderSucesso();
 
-        document.getElementById('payBtn').disabled = true;
-        document.getElementById('loadingBox').style.display = 'block';
-
-        const response = await fetch('https://tonclay-backend.onrender.com/criar-pagamento', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            nome,
-            email,
-            whatsapp,
-            quantidade
-          })
-        });
-
+        const response = await fetch(`https://tonclay-backend.onrender.com/admin-pedidos?token=${encodeURIComponent(token)}`);
         const data = await response.json();
-        console.log('Resposta do backend:', data);
 
         if (!response.ok) {
-          mostrarErro('Erro do servidor: ' + (data.detalhe || data.erro || 'desconhecido'));
+          mostrarErro(data.erro || 'Erro ao acessar painel.');
           return;
         }
 
-        paymentId = data.id;
+        pedidosOriginais = Array.isArray(data.pedidos) ? data.pedidos : [];
 
-        document.getElementById('pixCode').innerText = data.qr_code || '';
+        document.getElementById('statsBox').classList.remove('hidden');
+        document.getElementById('buscaBox').classList.remove('hidden');
+        document.getElementById('federalBox').classList.remove('hidden');
+        document.getElementById('tableBox').classList.remove('hidden');
 
-        if (data.qr_code_base64) {
-          document.getElementById('qrImg').src = 'data:image/png;base64,' + data.qr_code_base64;
-          document.getElementById('qrImg').style.display = 'block';
-        }
-
-        if (data.ticket_url) {
-          document.getElementById('ticketLink').href = data.ticket_url;
-          document.getElementById('ticketLink').style.display = 'block';
-        }
-
-        if (!data.qr_code && !data.qr_code_base64 && !data.ticket_url) {
-          mostrarErro('O pagamento foi criado, mas não retornou QR Code nem código Pix.');
-          return;
-        }
-
-        document.getElementById('pixBox').style.display = 'block';
-        document.getElementById('statusBox').style.display = 'block';
-        document.getElementById('paymentIdBox').innerText = 'ID do pagamento: ' + paymentId;
-
-        iniciarConsultaStatus();
+        atualizarResumo(pedidosOriginais);
+        renderTabela(pedidosOriginais);
+        mostrarSucesso('Painel carregado com sucesso.');
       } catch (error) {
         console.error(error);
-        mostrarErro('Falha ao gerar pagamento: ' + error.message);
-      } finally {
-        document.getElementById('payBtn').disabled = false;
-        document.getElementById('loadingBox').style.display = 'none';
+        mostrarErro('Falha ao carregar pedidos.');
       }
     }
 
-    function copiarPix() {
-      const pix = document.getElementById('pixCode').innerText;
+    async function buscarNumero() {
+      const token = document.getElementById('token').value.trim();
+      const numero = document.getElementById('numeroBusca').value.trim();
+      const box = document.getElementById('resultadoBusca');
 
-      if (!pix) {
-        mostrarErro('Nenhum código Pix disponível para copiar.');
+      box.innerHTML = '';
+
+      if (!token || !numero) {
+        mostrarErro('Digite a senha e o número.');
         return;
       }
 
-      navigator.clipboard.writeText(pix);
-      alert('Pix copiado!');
-    }
-
-    function iniciarConsultaStatus() {
-      if (!paymentId) return;
-
-      if (intervaloStatus) {
-        clearInterval(intervaloStatus);
-      }
-
-      consultarStatus();
-
-      intervaloStatus = setInterval(() => {
-        consultarStatus();
-      }, 5000);
-    }
-
-    async function consultarStatus() {
-      if (!paymentId) return;
-
       try {
-        const response = await fetch(`https://tonclay-backend.onrender.com/status-pagamento/${paymentId}`);
+        esconderErro();
+
+        const response = await fetch(`https://tonclay-backend.onrender.com/admin-buscar-numero/${encodeURIComponent(numero)}?token=${encodeURIComponent(token)}`);
         const data = await response.json();
 
         if (!response.ok) {
-          console.error(data);
+          box.innerHTML = `<div class="winner-card"><strong>Número não encontrado.</strong><div style="margin-top:6px;">${data.erro || ''}</div></div>`;
           return;
         }
 
-        const numeros = Array.isArray(data.numeros) ? data.numeros : [];
+        const p = data.pedido;
 
-        if (data.status === 'approved' && numeros.length > 0) {
-          document.getElementById('statusTexto').innerText = '✅ Pagamento aprovado! Seus números:';
-          const numbersBox = document.getElementById('numbersBox');
-          numbersBox.innerHTML = '';
-
-          numeros.forEach(numero => {
-            const pill = document.createElement('div');
-            pill.className = 'number-pill';
-            pill.innerText = String(numero).padStart(2, '0');
-            numbersBox.appendChild(pill);
-          });
-
-          if (intervaloStatus) {
-            clearInterval(intervaloStatus);
-            intervaloStatus = null;
-          }
-        } else {
-          document.getElementById('statusTexto').innerText = '⏳ Aguardando pagamento...';
-          document.getElementById('numbersBox').innerHTML = '';
-        }
+        box.innerHTML = `
+          <div class="winner-card">
+            <div class="winner-title">Número ${data.numero}</div>
+            <div><strong>Dono:</strong> ${p.nome || '—'}</div>
+            <div><strong>WhatsApp:</strong> ${p.whatsapp || '—'}</div>
+            <div><strong>Email:</strong> ${p.email || '—'}</div>
+            <div><strong>Status:</strong> ${p.status || '—'}</div>
+            <div style="margin-top:10px;"><strong>Números do pedido:</strong> ${formatarNumeros(p.numeros)}</div>
+          </div>
+        `;
       } catch (error) {
-        console.error('Erro ao consultar status:', error);
+        console.error(error);
+        mostrarErro('Erro ao buscar número.');
       }
     }
 
-    atualizarResumo();
+    async function consultarFederal() {
+      const token = document.getElementById('token').value.trim();
+      const box = document.getElementById('resultadoFederal');
+
+      box.innerHTML = '';
+
+      if (!token) {
+        mostrarErro('Digite a senha do painel.');
+        return;
+      }
+
+      try {
+        esconderErro();
+
+        const response = await fetch(`https://tonclay-backend.onrender.com/admin-resultado-federal?token=${encodeURIComponent(token)}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          box.innerHTML = `<div class="winner-card"><strong>Erro ao consultar Federal.</strong><div style="margin-top:6px;">${data.erro || ''}</div></div>`;
+          return;
+        }
+
+        const resultadosHtml = `
+          <div class="winner-highlight">
+            <div class="winner-title">Resultado oficial da Federal</div>
+            <div class="result-balls">
+              ${data.resultados.map(r => `<div class="ball">${r.premio}º ${r.numero}</div>`).join('')}
+            </div>
+          </div>
+        `;
+
+        const vencedores = Array.isArray(data.vencedores) ? data.vencedores : [];
+
+        const vencedoresHtml = vencedores.length === 0
+          ? `<div class="winner-card"><strong>Nenhum vencedor encontrado entre os números vendidos.</strong></div>`
+          : vencedores.map(v => `
+              <div class="winner-card">
+                <div class="winner-title">🎉 ${v.nome || 'Sem nome'} • Número ${v.numero}</div>
+                <div><strong>WhatsApp:</strong> ${v.whatsapp || '—'}</div>
+                <div><strong>Email:</strong> ${v.email || '—'}</div>
+                <div><strong>Payment ID:</strong> ${v.paymentId || '—'}</div>
+                <div style="margin-top:8px;"><strong>Acertos:</strong>
+                  ${v.match.exato ? ' EXATO ' : ''}
+                  ${v.match.milhar ? ' MILHAR ' : ''}
+                  ${v.match.centena ? ' CENTENA ' : ''}
+                  ${v.match.dezena ? ' DEZENA ' : ''}
+                </div>
+              </div>
+            `).join('');
+
+        box.innerHTML = resultadosHtml + vencedoresHtml;
+      } catch (error) {
+        console.error(error);
+        mostrarErro('Erro ao consultar resultado da Federal.');
+      }
+    }
+
+    function exportarCsv() {
+      const token = document.getElementById('token').value.trim();
+
+      if (!token) {
+        mostrarErro('Digite a senha do painel.');
+        return;
+      }
+
+      window.open(`https://tonclay-backend.onrender.com/admin-exportar-csv?token=${encodeURIComponent(token)}`, '_blank');
+    }
   </script>
 </body>
 </html>

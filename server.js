@@ -14,15 +14,19 @@ const clientMP = new MercadoPagoConfig({
 const paymentApi = new Payment(clientMP);
 
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'tonclay123';
-
-// Quantos números você quer vender no sorteio atual
-// Ex.: 300 números vendidos, mas cada um é um código de 5 dígitos
 const TOTAL_NUMEROS_VENDA = Number(process.env.TOTAL_NUMEROS_VENDA || 300);
 
-// Memória temporária
+// memória temporária
 const pedidos = {};
 
-// Gera números únicos de 5 dígitos
+function authAdmin(req, res, next) {
+    const token = req.query.token;
+    if (token !== ADMIN_TOKEN) {
+        return res.status(401).json({ erro: 'Não autorizado' });
+    }
+    next();
+}
+
 function gerarNumerosUnicos(quantidade = 1) {
     const usados = Object.values(pedidos)
         .flatMap(p => Array.isArray(p.numeros) ? p.numeros : []);
@@ -53,8 +57,8 @@ function normalizeText(html) {
 
 function extrairResultadosFederal(html) {
     const texto = normalizeText(html);
-
     const regex = /([1-5])º[^0-9]{0,40}(\d{5})/g;
+
     const encontrados = [];
     let match;
 
@@ -76,27 +80,22 @@ function extrairResultadosFederal(html) {
         }
     }
 
-    return unicos
-        .sort((a, b) => a.premio - b.premio)
-        .slice(0, 5);
+    return unicos.sort((a, b) => a.premio - b.premio).slice(0, 5);
 }
 
 function conferirNumeroContraFederal(numeroComprado, resultados) {
     const finais = resultados.map(r => r.numero);
 
-    const matches = {
+    return {
         exato: finais.includes(numeroComprado),
         milhar: finais.some(n => n.slice(-4) === numeroComprado.slice(-4)),
         centena: finais.some(n => n.slice(-3) === numeroComprado.slice(-3)),
         dezena: finais.some(n => n.slice(-2) === numeroComprado.slice(-2))
     };
-
-    return matches;
 }
 
 function encontrarVencedores(resultados) {
     const listaPedidos = Object.values(pedidos);
-
     const vencedores = [];
 
     for (const pedido of listaPedidos) {
@@ -121,24 +120,17 @@ function encontrarVencedores(resultados) {
     return vencedores;
 }
 
-function authAdmin(req, res, next) {
-    const token = req.query.token;
-    if (token !== ADMIN_TOKEN) {
-        return res.status(401).json({ erro: 'Não autorizado' });
-    }
-    next();
-}
-
 app.get('/', (req, res) => {
     res.send('Servidor rodando 🔥');
 });
 
 app.get('/health', (req, res) => {
+    const lista = Object.values(pedidos);
     res.json({
         ok: true,
         banco: 'desativado_temporariamente',
-        totalPedidos: Object.keys(pedidos).length,
-        totalNumerosVendidos: Object.values(pedidos).reduce((acc, p) => acc + ((p.numeros || []).length), 0),
+        totalPedidos: lista.length,
+        totalNumerosVendidos: lista.reduce((acc, p) => acc + ((p.numeros || []).length), 0),
         limiteVenda: TOTAL_NUMEROS_VENDA
     });
 });
@@ -158,6 +150,11 @@ app.post('/criar-pagamento', async (req, res) => {
         const qtd = Number(quantidade) || 1;
         const valorUnitario = 10;
         const valorTotal = qtd * valorUnitario;
+
+        const numerosVendidos = Object.values(pedidos).reduce((acc, p) => acc + ((p.numeros || []).length), 0);
+        if (numerosVendidos + qtd > TOTAL_NUMEROS_VENDA) {
+            return res.status(400).json({ erro: 'Limite de números vendidos atingido' });
+        }
 
         const pagamento = await paymentApi.create({
             body: {
@@ -207,8 +204,6 @@ app.post('/criar-pagamento', async (req, res) => {
 
 app.post('/webhook', async (req, res) => {
     try {
-        console.log('🔔 Webhook recebido:', JSON.stringify(req.body));
-
         const tipo = req.body.type || req.body.topic;
         const paymentId =
             req.body?.data?.id ||
@@ -244,7 +239,6 @@ app.post('/webhook', async (req, res) => {
             const numeros = gerarNumerosUnicos(pedido.quantidade || 1);
             pedido.numeros = numeros || [];
             pedido.aprovadoEm = new Date().toISOString();
-
             console.log(`✅ Pagamento aprovado. Números gerados para ${paymentId}: ${pedido.numeros.join(', ')}`);
         }
 
@@ -317,7 +311,6 @@ app.get('/admin-buscar-numero/:numero', authAdmin, (req, res) => {
     }
 });
 
-// Busca resultado oficial da Federal na página da CAIXA
 app.get('/admin-resultado-federal', authAdmin, async (req, res) => {
     try {
         const response = await fetch('https://loterias.caixa.gov.br/Paginas/Federal.aspx', {
@@ -331,23 +324,56 @@ app.get('/admin-resultado-federal', authAdmin, async (req, res) => {
 
         if (!resultados || resultados.length < 5) {
             return res.status(500).json({
-                erro: 'Não foi possível extrair os 5 resultados da Federal da página oficial da CAIXA'
+                erro: 'Não foi possível extrair os 5 resultados da Federal'
             });
         }
 
         const vencedores = encontrarVencedores(resultados);
 
         return res.json({
-            fonte: 'CAIXA Federal',
             resultados,
             vencedores
         });
     } catch (error) {
         console.error('❌ Erro ao consultar Federal:', error);
         return res.status(500).json({
-            erro: 'Erro ao consultar resultado da Federal',
+            erro: 'Erro ao consultar Federal',
             detalhe: error.message
         });
+    }
+});
+
+app.get('/admin-exportar-csv', authAdmin, (req, res) => {
+    try {
+        const lista = Object.values(pedidos)
+            .sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
+
+        const linhas = [
+            ['Nome', 'WhatsApp', 'Email', 'Status', 'Quantidade', 'Valor', 'Numeros', 'PaymentID', 'CriadoEm'].join(';')
+        ];
+
+        lista.forEach(p => {
+            linhas.push([
+                p.nome || '',
+                p.whatsapp || '',
+                p.email || '',
+                p.status || '',
+                p.quantidade || 1,
+                p.valor || 0,
+                (p.numeros || []).join(', '),
+                p.paymentId || '',
+                p.criadoEm || ''
+            ].join(';'));
+        });
+
+        const csv = linhas.join('\n');
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename=pedidos-tonclay.csv');
+        return res.send('\uFEFF' + csv);
+    } catch (error) {
+        console.error('❌ Erro ao exportar CSV:', error);
+        return res.status(500).json({ erro: 'Erro ao exportar CSV' });
     }
 });
 
