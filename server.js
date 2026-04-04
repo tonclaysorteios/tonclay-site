@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const { Pool } = require('pg');
 const { MercadoPagoConfig, Payment } = require('mercadopago');
 
 const app = express();
@@ -16,8 +17,13 @@ const paymentApi = new Payment(clientMP);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'tonclay123';
 const TOTAL_NUMEROS_VENDA = Number(process.env.TOTAL_NUMEROS_VENDA || 300);
 
-// memória temporária
-const pedidos = {};
+if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL não configurada no Render');
+}
+
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL
+});
 
 function authAdmin(req, res, next) {
     const token = req.query.token;
@@ -27,9 +33,66 @@ function authAdmin(req, res, next) {
     next();
 }
 
-function gerarNumerosUnicos(quantidade = 1) {
-    const usados = Object.values(pedidos)
-        .flatMap(p => Array.isArray(p.numeros) ? p.numeros : []);
+async function initDb() {
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS pedidos (
+      payment_id TEXT PRIMARY KEY,
+      nome TEXT,
+      email TEXT,
+      whatsapp TEXT,
+      status TEXT DEFAULT 'pending',
+      numeros JSONB DEFAULT '[]'::jsonb,
+      valor NUMERIC(10,2) DEFAULT 0,
+      quantidade INTEGER DEFAULT 1,
+      criado_em TIMESTAMPTZ DEFAULT NOW(),
+      atualizado_em TIMESTAMPTZ DEFAULT NOW(),
+      aprovado_em TIMESTAMPTZ
+    )
+  `);
+}
+
+function normalizePedido(row) {
+    return {
+        paymentId: row.payment_id,
+        nome: row.nome || '',
+        email: row.email || '',
+        whatsapp: row.whatsapp || '',
+        status: row.status || 'pending',
+        numeros: Array.isArray(row.numeros) ? row.numeros : [],
+        valor: Number(row.valor || 0),
+        quantidade: Number(row.quantidade || 1),
+        criadoEm: row.criado_em,
+        atualizadoEm: row.atualizado_em,
+        aprovadoEm: row.aprovado_em
+    };
+}
+
+async function getAllAssignedNumbers() {
+    const result = await pool.query(`
+    SELECT numeros
+    FROM pedidos
+    WHERE jsonb_array_length(numeros) > 0
+  `);
+
+    const usados = [];
+    for (const row of result.rows) {
+        if (Array.isArray(row.numeros)) {
+            usados.push(...row.numeros);
+        }
+    }
+    return usados;
+}
+
+async function getTotalAssignedCount() {
+    const result = await pool.query(`
+    SELECT COALESCE(SUM(jsonb_array_length(numeros)), 0) AS total
+    FROM pedidos
+  `);
+    return Number(result.rows[0]?.total || 0);
+}
+
+async function gerarNumerosUnicos(quantidade = 1) {
+    const usados = await getAllAssignedNumbers();
 
     if (usados.length + quantidade > TOTAL_NUMEROS_VENDA) {
         return null;
@@ -49,10 +112,7 @@ function gerarNumerosUnicos(quantidade = 1) {
 }
 
 function normalizeText(html) {
-    return html
-        .replace(/\s+/g, ' ')
-        .replace(/&nbsp;/g, ' ')
-        .trim();
+    return html.replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ').trim();
 }
 
 function extrairResultadosFederal(html) {
@@ -94,14 +154,20 @@ function conferirNumeroContraFederal(numeroComprado, resultados) {
     };
 }
 
-function encontrarVencedores(resultados) {
-    const listaPedidos = Object.values(pedidos);
+async function encontrarVencedores(resultados) {
+    const result = await pool.query(`
+    SELECT *
+    FROM pedidos
+    WHERE jsonb_array_length(numeros) > 0
+    ORDER BY criado_em DESC
+  `);
+
     const vencedores = [];
 
-    for (const pedido of listaPedidos) {
-        const numeros = Array.isArray(pedido.numeros) ? pedido.numeros : [];
+    for (const row of result.rows) {
+        const pedido = normalizePedido(row);
 
-        for (const numero of numeros) {
+        for (const numero of pedido.numeros) {
             const match = conferirNumeroContraFederal(numero, resultados);
 
             if (match.exato || match.milhar || match.centena || match.dezena) {
@@ -124,15 +190,25 @@ app.get('/', (req, res) => {
     res.send('Servidor rodando 🔥');
 });
 
-app.get('/health', (req, res) => {
-    const lista = Object.values(pedidos);
-    res.json({
-        ok: true,
-        banco: 'desativado_temporariamente',
-        totalPedidos: lista.length,
-        totalNumerosVendidos: lista.reduce((acc, p) => acc + ((p.numeros || []).length), 0),
-        limiteVenda: TOTAL_NUMEROS_VENDA
-    });
+app.get('/health', async (req, res) => {
+    try {
+        const totalPedidosRes = await pool.query(`SELECT COUNT(*)::int AS total FROM pedidos`);
+        const totalNumerosVendidos = await getTotalAssignedCount();
+
+        return res.json({
+            ok: true,
+            banco: 'postgres',
+            totalPedidos: totalPedidosRes.rows[0].total,
+            totalNumerosVendidos,
+            limiteVenda: TOTAL_NUMEROS_VENDA
+        });
+    } catch (error) {
+        console.error('❌ Erro no health:', error);
+        return res.status(500).json({
+            ok: false,
+            erro: error.message
+        });
+    }
 });
 
 app.post('/criar-pagamento', async (req, res) => {
@@ -151,15 +227,10 @@ app.post('/criar-pagamento', async (req, res) => {
         const valorUnitario = 10;
         const valorTotal = qtd * valorUnitario;
 
-        const numerosVendidos = Object.values(pedidos).reduce((acc, p) => acc + ((p.numeros || []).length), 0);
-        if (numerosVendidos + qtd > TOTAL_NUMEROS_VENDA) {
-            return res.status(400).json({ erro: 'Limite de números vendidos atingido' });
-        }
-
         const pagamento = await paymentApi.create({
             body: {
                 transaction_amount: valorTotal,
-                description: `Participação sorteio TonClay (${qtd} número${qtd > 1 ? 's' : ''})`,
+                description: `Participação sorteio TonClay (${qtd} bilhete${qtd > 1 ? 's' : ''})`,
                 payment_method_id: 'pix',
                 payer: {
                     email,
@@ -171,18 +242,28 @@ app.post('/criar-pagamento', async (req, res) => {
 
         const transactionData = pagamento?.point_of_interaction?.transaction_data || {};
 
-        pedidos[String(pagamento.id)] = {
-            paymentId: String(pagamento.id),
+        await pool.query(`
+      INSERT INTO pedidos (
+        payment_id, nome, email, whatsapp, status, numeros, valor, quantidade, criado_em, atualizado_em
+      )
+      VALUES ($1,$2,$3,$4,$5,'[]'::jsonb,$6,$7,NOW(),NOW())
+      ON CONFLICT (payment_id) DO UPDATE SET
+        nome = EXCLUDED.nome,
+        email = EXCLUDED.email,
+        whatsapp = EXCLUDED.whatsapp,
+        status = EXCLUDED.status,
+        valor = EXCLUDED.valor,
+        quantidade = EXCLUDED.quantidade,
+        atualizado_em = NOW()
+    `, [
+            String(pagamento.id),
             nome,
             email,
-            whatsapp: whatsapp || '',
-            status: pagamento.status || 'pending',
-            numeros: [],
-            valor: valorTotal,
-            quantidade: qtd,
-            criadoEm: new Date().toISOString(),
-            atualizadoEm: new Date().toISOString()
-        };
+            whatsapp || '',
+            pagamento.status || 'pending',
+            valorTotal,
+            qtd
+        ]);
 
         return res.json({
             id: pagamento.id,
@@ -204,6 +285,8 @@ app.post('/criar-pagamento', async (req, res) => {
 
 app.post('/webhook', async (req, res) => {
     try {
+        console.log('🔔 Webhook recebido:', JSON.stringify(req.body));
+
         const tipo = req.body.type || req.body.topic;
         const paymentId =
             req.body?.data?.id ||
@@ -216,30 +299,60 @@ app.post('/webhook', async (req, res) => {
         const pagamentoMercadoPago = await paymentApi.get({ id: paymentId });
         const status = pagamentoMercadoPago.status;
 
-        if (!pedidos[String(paymentId)]) {
-            pedidos[String(paymentId)] = {
-                paymentId: String(paymentId),
-                nome: '',
-                email: '',
-                whatsapp: '',
-                status,
-                numeros: [],
-                quantidade: 1,
-                valor: 10,
-                criadoEm: new Date().toISOString(),
-                atualizadoEm: new Date().toISOString()
-            };
+        const pedidoRes = await pool.query(`
+      SELECT *
+      FROM pedidos
+      WHERE payment_id = $1
+      LIMIT 1
+    `, [String(paymentId)]);
+
+        if (pedidoRes.rows.length === 0) {
+            await pool.query(`
+        INSERT INTO pedidos (
+          payment_id, status, numeros, valor, quantidade, criado_em, atualizado_em
+        )
+        VALUES ($1,$2,'[]'::jsonb,10,1,NOW(),NOW())
+        ON CONFLICT (payment_id) DO NOTHING
+      `, [String(paymentId), status]);
         }
 
-        const pedido = pedidos[String(paymentId)];
-        pedido.status = status;
-        pedido.atualizadoEm = new Date().toISOString();
+        const atualRes = await pool.query(`
+      SELECT *
+      FROM pedidos
+      WHERE payment_id = $1
+      LIMIT 1
+    `, [String(paymentId)]);
+
+        const pedido = normalizePedido(atualRes.rows[0]);
 
         if (status === 'approved' && (!pedido.numeros || pedido.numeros.length === 0)) {
-            const numeros = gerarNumerosUnicos(pedido.quantidade || 1);
-            pedido.numeros = numeros || [];
-            pedido.aprovadoEm = new Date().toISOString();
-            console.log(`✅ Pagamento aprovado. Números gerados para ${paymentId}: ${pedido.numeros.join(', ')}`);
+            const numeros = await gerarNumerosUnicos(pedido.quantidade || 1);
+
+            if (!numeros) {
+                await pool.query(`
+          UPDATE pedidos
+          SET status = $2, atualizado_em = NOW()
+          WHERE payment_id = $1
+        `, [String(paymentId), 'approved']);
+                return res.sendStatus(200);
+            }
+
+            await pool.query(`
+        UPDATE pedidos
+        SET status = $2,
+            numeros = $3::jsonb,
+            aprovado_em = NOW(),
+            atualizado_em = NOW()
+        WHERE payment_id = $1
+      `, [String(paymentId), status, JSON.stringify(numeros)]);
+
+            console.log(`✅ Pagamento aprovado. Números gerados para ${paymentId}: ${numeros.join(', ')}`);
+        } else {
+            await pool.query(`
+        UPDATE pedidos
+        SET status = $2, atualizado_em = NOW()
+        WHERE payment_id = $1
+      `, [String(paymentId), status]);
         }
 
         return res.sendStatus(200);
@@ -249,14 +362,22 @@ app.post('/webhook', async (req, res) => {
     }
 });
 
-app.get('/status-pagamento/:id', (req, res) => {
+app.get('/status-pagamento/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const pedido = pedidos[String(id)];
 
-        if (!pedido) {
+        const result = await pool.query(`
+      SELECT *
+      FROM pedidos
+      WHERE payment_id = $1
+      LIMIT 1
+    `, [String(id)]);
+
+        if (result.rows.length === 0) {
             return res.status(404).json({ erro: 'Pagamento não encontrado' });
         }
+
+        const pedido = normalizePedido(result.rows[0]);
 
         return res.json({
             id: pedido.paymentId,
@@ -272,16 +393,22 @@ app.get('/status-pagamento/:id', (req, res) => {
     }
 });
 
-app.get('/admin-pedidos', authAdmin, (req, res) => {
+app.get('/admin-pedidos', authAdmin, async (req, res) => {
     try {
-        const lista = Object.values(pedidos)
-            .sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
+        const result = await pool.query(`
+      SELECT *
+      FROM pedidos
+      ORDER BY criado_em DESC
+    `);
+
+        const pedidos = result.rows.map(normalizePedido);
+        const totalNumerosVendidos = pedidos.reduce((acc, p) => acc + (p.numeros?.length || 0), 0);
 
         return res.json({
-            total: lista.length,
-            totalNumerosVendidos: lista.reduce((acc, p) => acc + ((p.numeros || []).length), 0),
+            total: pedidos.length,
+            totalNumerosVendidos,
             limiteVenda: TOTAL_NUMEROS_VENDA,
-            pedidos: lista
+            pedidos
         });
     } catch (error) {
         console.error('❌ Erro ao listar pedidos:', error);
@@ -289,21 +416,24 @@ app.get('/admin-pedidos', authAdmin, (req, res) => {
     }
 });
 
-app.get('/admin-buscar-numero/:numero', authAdmin, (req, res) => {
+app.get('/admin-buscar-numero/:numero', authAdmin, async (req, res) => {
     try {
         const numero = String(req.params.numero).padStart(5, '0');
 
-        const dono = Object.values(pedidos).find(p =>
-            Array.isArray(p.numeros) && p.numeros.includes(numero)
-        );
+        const result = await pool.query(`
+      SELECT *
+      FROM pedidos
+      WHERE numeros ? $1
+      LIMIT 1
+    `, [numero]);
 
-        if (!dono) {
+        if (result.rows.length === 0) {
             return res.status(404).json({ erro: 'Número não encontrado' });
         }
 
         return res.json({
             numero,
-            pedido: dono
+            pedido: normalizePedido(result.rows[0])
         });
     } catch (error) {
         console.error('❌ Erro ao buscar número:', error);
@@ -314,9 +444,7 @@ app.get('/admin-buscar-numero/:numero', authAdmin, (req, res) => {
 app.get('/admin-resultado-federal', authAdmin, async (req, res) => {
     try {
         const response = await fetch('https://loterias.caixa.gov.br/Paginas/Federal.aspx', {
-            headers: {
-                'User-Agent': 'Mozilla/5.0'
-            }
+            headers: { 'User-Agent': 'Mozilla/5.0' }
         });
 
         const html = await response.text();
@@ -328,31 +456,35 @@ app.get('/admin-resultado-federal', authAdmin, async (req, res) => {
             });
         }
 
-        const vencedores = encontrarVencedores(resultados);
+        const vencedores = await encontrarVencedores(resultados);
 
         return res.json({
+            fonte: 'CAIXA Federal',
             resultados,
             vencedores
         });
     } catch (error) {
         console.error('❌ Erro ao consultar Federal:', error);
         return res.status(500).json({
-            erro: 'Erro ao consultar Federal',
+            erro: 'Erro ao consultar resultado da Federal',
             detalhe: error.message
         });
     }
 });
 
-app.get('/admin-exportar-csv', authAdmin, (req, res) => {
+app.get('/admin-exportar-csv', authAdmin, async (req, res) => {
     try {
-        const lista = Object.values(pedidos)
-            .sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm));
+        const result = await pool.query(`
+      SELECT *
+      FROM pedidos
+      ORDER BY criado_em DESC
+    `);
 
         const linhas = [
             ['Nome', 'WhatsApp', 'Email', 'Status', 'Quantidade', 'Valor', 'Numeros', 'PaymentID', 'CriadoEm'].join(';')
         ];
 
-        lista.forEach(p => {
+        result.rows.map(normalizePedido).forEach(p => {
             linhas.push([
                 p.nome || '',
                 p.whatsapp || '',
@@ -360,17 +492,15 @@ app.get('/admin-exportar-csv', authAdmin, (req, res) => {
                 p.status || '',
                 p.quantidade || 1,
                 p.valor || 0,
-                (p.numeros || []).join(', '),
+                (p.numeros || []).join(','),
                 p.paymentId || '',
                 p.criadoEm || ''
             ].join(';'));
         });
 
-        const csv = linhas.join('\n');
-
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename=pedidos-tonclay.csv');
-        return res.send('\uFEFF' + csv);
+        res.setHeader('Content-Disposition', 'attachment; filename=pedidos_tonclay.csv');
+        return res.send('\uFEFF' + linhas.join('\n'));
     } catch (error) {
         console.error('❌ Erro ao exportar CSV:', error);
         return res.status(500).json({ erro: 'Erro ao exportar CSV' });
@@ -379,6 +509,14 @@ app.get('/admin-exportar-csv', authAdmin, (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
-});
+(async () => {
+    try {
+        await initDb();
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log(`🚀 Servidor rodando na porta ${PORT}`);
+        });
+    } catch (error) {
+        console.error('❌ Falha ao iniciar servidor:', error);
+        process.exit(1);
+    }
+})();
