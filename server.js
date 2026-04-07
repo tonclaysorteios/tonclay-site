@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -8,8 +9,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const mpToken = (process.env.MP_ACCESS_TOKEN || '').trim();
+
+console.log('🔑 MP token carregada?', mpToken ? 'SIM' : 'NÃO');
+console.log('🔑 Prefixo da token:', mpToken ? mpToken.slice(0, 12) + '...' : 'VAZIA');
+
 const clientMP = new MercadoPagoConfig({
-    accessToken: process.env.MP_ACCESS_TOKEN
+    accessToken: mpToken
 });
 
 const paymentApi = new Payment(clientMP);
